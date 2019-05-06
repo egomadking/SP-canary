@@ -1,5 +1,3 @@
-/* status === "Started", "Good", "Warning", "Fail", "Logging results and restarting" */
-
 var model = {
   currentTime: '',
   timeStarted: '',
@@ -8,7 +6,9 @@ var model = {
   status: 'Started',
   oldStatus: 'Initializing...', //detect change on status
   lastStatus: 'Initializing...', //for DOM use
-  url: 'http://5cce22999eb94f0014c481ae.mockapi.io/response',
+  timeFirstIssue: '',
+  timeFirstIssueSet: false,
+  url: 'http://5cce22999eb94f0014c481ae.mockapi.io/response', //changes when attached to SP
   req: '',
 };
 
@@ -20,6 +20,7 @@ var view = {
   timeUp: '',
   timeClean: '',
   lastStatus: '',
+  timeFirstIssue: '',
   updateCanaryPath: function(status) {
     var classes = this.canaryPath.classList;
     switch (status) {
@@ -35,7 +36,7 @@ var view = {
   },
   setTime: function(date, elem) {
     var hr = date.getUTCHours();
-    if (elem === view.timeStarted) {
+    if (elem === view.timeStarted || elem === view.timeFirstIssue) {
       hr = date.getHours();
     }
     var min = date.getUTCMinutes();
@@ -56,8 +57,8 @@ var view = {
   setStatus: function(status) {
     this.status.innerText = status;
   },
-  setLastStatus: function(status) {
-    this.lastStatus.innerText = status;
+  setLastStatus: function(lastStatus) {
+    this.lastStatus.innerText = lastStatus;
   },
 };
 
@@ -71,6 +72,10 @@ var controller = {
     v.lastStatus = document.getElementsByClassName('canary-last-status')[0];
     v.timeUp = document.getElementsByClassName('canary-time-up')[0];
     v.timeClean = document.getElementsByClassName('canary-time-clean')[0];
+    v.timeFirstIssue = document.getElementsByClassName('canary-time-first-issue')[0];
+    if(_spPageContextInfo){
+      model.url = _spPageContextInfo.webAbsoluteUrl + '/_api/web'
+    }
   },
   getAsync: function(url) {
     model.req = new XMLHttpRequest();
@@ -79,22 +84,19 @@ var controller = {
     model.req.send();
   },
   processAsync: function() {
-    /* keeping in case redirect does not give off readyState 4
-    if (model.req.readyState === 2 || model.req.readyState === 3) {
-      console.log(model.req.readyState, model.req.status);
-    }
-    */
     if (model.req.readyState === 4) {
-      console.log('done');
+      model.timestamps.push({ time: model.currentTime.getTime(), status: model.req.status });
       if (model.req.status === 200) {
-        if (model.req.oldStatus !== model.req.status) {
-          model.timestamps.push({ time: model.time.getTime(), status: status });
-        }
         return controller.updateStatus('Good');
       }
-      if (model.req.status >= 300 && model.req.status <= 308) {
-        model.timestamps.push({ time: model.time.getTime(), status: status });
+      else if(model.req.status === 0 || model.req.status >= 400){
+        return controller.updateStatus('Worsen'); //I may want to deal with 0 & 4xx differently
+        
+      }
+      else if (model.req.status >= 300 && model.req.status <= 308) {
         return controller.updateStatus('Worsen');
+      } else {
+        console.log("exception to status logging. Check status.")
       }
     }
   },
@@ -105,16 +107,22 @@ var controller = {
     view.setStatus(model.status);
     view.setLastStatus(model.lastStatus);
   },
+  checkConnection: function(){
+    controller.getAsync(model.url)
+    setTimeout(controller.checkConnection, 5000);
+  },
   updateState: function() {
     controller.updateTimeCounters();
     if (model.status !== model.oldStatus) {
       view.updateCanaryPath(model.status);
       view.setStatus(model.status);
-      view.oldStatus = model.status;
+      model.oldStatus = model.status;
+      view.setLastStatus(model.lastStatus);
     }
     setTimeout(controller.updateState, 1000);
   },
   updateStatus: function(e) {
+    model.lastStatus = model.oldStatus;
     switch (e) {
       case 'Good':
         model.status = 'Good';
@@ -125,12 +133,25 @@ var controller = {
         } else if (model.status === 'Warning') {
           model.status = 'Fail';
         } else {
+          //something else
         }
+        break;
+      default:
+        model.status = "Good";
     }
   },
   updateTimeCounters: function() {
     var current = new Date();
     model.currentTime = current;
+    if(model.status !== "Good"){
+      model.timeLastClean = new Date();
+      if(model.status === "Warning" && model.timeFirstIssueSet === false){
+        model.timeFirstIssue = new Date();
+        model.timeFirstIssueSet = true;
+        view.setTime(model.timeFirstIssue, view.timeFirstIssue)
+      }
+      
+    }
     var upHolder = current.getTime() - model.timeStarted.getTime();
     var up = new Date(upHolder);
     view.setTime(up, view.timeUp);
@@ -138,9 +159,15 @@ var controller = {
     var clean = new Date(cleanHolder);
     view.setTime(clean, view.timeClean);
   },
+  saveAndReload: function() {
+    //save model.timestamps w/localForage
+    location.reload();
+  },
   init: function() {
+    //load localForage timestamps into model
     this.getPageElements();
     this.setState();
+    this.checkConnection();
     this.updateState();
   },
 };
