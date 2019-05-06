@@ -1,0 +1,48 @@
+  .ms-rtestate-field {
+    position: relative;
+    height: 50vh
+  }
+
+  .heartbeat-wrapper {
+    background-color: #ececec;
+    left: 45%;
+    left: calc(50% - 100px);
+    padding: 15px;
+    position: absolute;
+    text-align: center;
+  }
+
+  .canary-wrapper {
+    background-color: #fff;
+    margin: auto;
+    margin-bottom: 10px;
+    width: 200px;
+  }
+
+  .canary {
+    width: 180px;
+    padding: 10px;
+    position: relative;
+    transition-duration: 0.3s;
+  }
+
+  .canary-path {
+    transition-duration: 1s;
+    fill: hsl(0, 0%, 63%);
+  }
+
+  .canary-good {
+    fill: hsl(120, 97%, 43%);
+  }
+
+  .canary-warning {
+    fill: hsl(60, 97%, 43%);
+  }
+
+  .canary-fail {
+    fill: hsl(0, 97%, 43%);
+  }
+
+  .stats-wrapper {
+    text-align: left;
+  }

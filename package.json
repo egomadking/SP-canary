@@ -1,0 +1,20 @@
+{
+  "name": "sp-canary",
+  "version": "1.0.0",
+  "description": "Canary that uses a heartbeat to detect XMLHTTP requests redirects that sometimes cause issues with page responsiveness.",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "bs": "browser-sync start --server --files='**/*'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/egomadking/SP-canary.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/egomadking/SP-canary/issues"
+  },
+  "homepage": "https://github.com/egomadking/SP-canary#readme"
+}
