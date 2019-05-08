@@ -8,6 +8,7 @@ var model = {
   lastStatus: 'Initializing...', //for DOM use
   timeFirstIssue: '',
   timeFirstIssueSet: false,
+  restarting: false,
   url: 'http://5cce22999eb94f0014c481ae.mockapi.io/response', //changes when attached to SP
   req: '',
 };
@@ -25,13 +26,19 @@ var view = {
     var classes = this.canaryPath.classList;
     switch (status) {
       case 'Warning':
-        classes.value = 'canary-path canary-warning';
+        classes.add('canary-warning');
+        classes.remove('canary-good');
+        classes.remove('canary-fail');
         break;
       case 'Fail':
-        classes.value = 'canary-path canary-fail';
+        classes.add('canary-fail');
+        classes.remove('canary-good');
+        classes.remove('canary-warning');
         break;
       default:
-        classes.value = 'canary-path canary-good';
+        classes.add('canary-good');
+        classes.remove('canary-fail');
+        classes.remove('canary-warning');
     }
   },
   setTime: function(date, elem) {
@@ -132,9 +139,12 @@ var controller = {
           model.status = 'Warning';
         } else if (model.status === 'Warning') {
           model.status = 'Fail';
+        } else if (model.status === 'Fail') {
+          model.status = 'Saving statistics and restarting';
+          controller.saveAndReload();
         } else {
-          //something else
-        }
+          console.log("Status Error: " + model.status);
+        };
         break;
       default:
         model.status = "Good";
@@ -159,9 +169,12 @@ var controller = {
     var clean = new Date(cleanHolder);
     view.setTime(clean, view.timeClean);
   },
+  initForage: function(){
+    if(!localforage.)
+  }
   saveAndReload: function() {
     //save model.timestamps w/localForage
-    location.reload();
+    setTimeout(location.reload, 2000);
   },
   init: function() {
     //load localForage timestamps into model
@@ -172,4 +185,6 @@ var controller = {
   },
 };
 
-controller.init();
+window.onload = function(){
+  controller.init();
+}
