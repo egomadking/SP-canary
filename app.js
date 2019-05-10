@@ -8,6 +8,7 @@ var model = {
   lastStatus: 'Initializing...', //for DOM use
   timeFirstIssue: '',
   timeFirstIssueSet: false,
+  restarts: 0,
   restarting: false,
   url: 'http://5cce22999eb94f0014c481ae.mockapi.io/response', //changes when attached to SP
   req: '',
@@ -15,6 +16,7 @@ var model = {
 
 var view = {
   canary: '',
+  canaryRestarts: '',
   canaryPath: '',
   status: '',
   timeStarted: '',
@@ -40,6 +42,10 @@ var view = {
         classes.remove('canary-fail');
         classes.remove('canary-warning');
     }
+  },
+  setRestarts: function(restarts){
+    this.canaryRestarts.innerText = restarts;
+    console.log(this.canaryRestarts.innerText)
   },
   setTime: function(date, elem) {
     var hr = date.getUTCHours();
@@ -73,6 +79,7 @@ var controller = {
   getPageElements: function() {
     var v = view;
     v.canary = document.getElementsByClassName('canary')[0];
+    v.canaryRestarts= document.getElementsByClassName('canary-restarts')[0];
     v.canaryPath = document.getElementsByClassName('canary-path')[0];
     v.status = document.getElementsByClassName('canary-status')[0];
     v.timeStarted = document.getElementsByClassName('canary-time-started')[0];
@@ -91,27 +98,44 @@ var controller = {
     model.req.send();
   },
   processAsync: function() {
+  var lastStamp;
+  var len;
     if (model.req.readyState === 4) {
-      model.timestamps.push({ time: model.currentTime.getTime(), status: model.req.status });
-      if (model.req.status === 200) {
-        return controller.updateStatus('Good');
-      }
-      else if(model.req.status === 0 || model.req.status >= 400){
-        return controller.updateStatus('Worsen'); //I may want to deal with 0 & 4xx differently
-        
-      }
-      else if (model.req.status >= 300 && model.req.status <= 308) {
-        return controller.updateStatus('Worsen');
+      
+      if(model.timestamps == undefined || model.timestamps.length === 0){
+        model.timestamps.push({ time: model.currentTime.getTime(), status: model.req.status });
+        console.log("initial timestamp pushed. Status: "+ model.req.status);
       } else {
-        console.log("exception to status logging. Check status.")
+        len = model.timestamps.length - 1;
+        if(model.timestamps.length > 0 && model.timestamps[len].status !== model.req.status){
+          lastStamp = model.timestamps[model.timestamps.length -1];
+          model.timestamps.push({ time: model.currentTime.getTime(), status: model.req.status });
+          console.log("timestamp change pushed. Status: "+ model.req.status);
+        }
+        
+        //model.timestamps.push({ time: model.currentTime.getTime(), status: model.req.status });
+        if (model.req.status === 200) {
+          return controller.updateStatus('Good');
+        }
+        else if(model.req.status === 0 || model.req.status >= 400){
+          return controller.updateStatus('Worsen'); //I may want to deal with 0 & 4xx differently
+          
+        }
+        else if (model.req.status >= 300 && model.req.status <= 308) {
+          return controller.updateStatus('Worsen');
+        } else {
+          console.log("exception to status logging. Check status.")
+        }
       }
+      
     }
   },
   setState: function() {
+    view.setStatus(model.status);
     model.timeStarted = new Date();
     model.timeLastClean = new Date();
+    view.setRestarts(model.restarts);
     view.setTime(model.timeStarted, view.timeStarted);
-    view.setStatus(model.status);
     view.setLastStatus(model.lastStatus);
   },
   checkConnection: function(){
@@ -170,14 +194,34 @@ var controller = {
     view.setTime(clean, view.timeClean);
   },
   initForage: function(){
-    if(!localforage.)
-  }
+    localforage.length().then(function(len){
+      if(len > 0){
+        localforage.getItem('timestamps')
+          .then(function(timestamps){model.timestamps = timestamps})
+          .then(localforage.getItem('restarts')
+            .then(function(num){model.restarts = num})
+          )
+          .catch(function(err){console.log('localforage error with restart count')});
+      }
+    }).catch(function(err){});
+  },
   saveAndReload: function() {
-    //save model.timestamps w/localForage
-    setTimeout(location.reload, 2000);
+    model.restarts += 1;
+    localforage.setItem('timestamps', model.timestamps)
+      .then(function(){console.log('timestamps saved')})
+      .then(localforage.setItem('restarts', model.restarts))
+      .then(function(){location.reload()})
+      .catch(function(err){console.log('general localforage error on save')});
+  },
+  reset: function(){
+  var confirmReset = confirm("Pressing this button will reset the canary's local storage and loads SP16 pub management home. Do you want to do this?")
+    if(confirmReset){
+      model = '';
+      localforage.clear()
+        .then(location = 'https://pub.afcent.af.mil/mgt')
+    }
   },
   init: function() {
-    //load localForage timestamps into model
     this.getPageElements();
     this.setState();
     this.checkConnection();
@@ -185,6 +229,7 @@ var controller = {
   },
 };
 
+controller.initForage();
 window.onload = function(){
   controller.init();
 }
